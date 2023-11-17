@@ -73,19 +73,23 @@
 import { computed } from 'vue';
 import { useForm, useFieldArray } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/yup';
-import { object, number, array } from 'yup';
+import { object, number, array, ref } from 'yup';
 
 const { values, errors, handleSubmit } = useForm({
   validationSchema: toTypedSchema(
     object({
       settings: array()
         .required()
+        .min(1)
         .of(
           object({
             min_points: number().required().integer().min(0),
             max_points: number()
               .integer('Max points must be an integer')
-              .min(0, 'Max points must be positive')
+              .min(
+                ref('min_points'),
+                'Max points must be greater than min points'
+              )
               .transform((value, origin) =>
                 origin != null && origin !== '' ? value : undefined
               ),
@@ -97,14 +101,6 @@ const { values, errors, handleSubmit } = useForm({
               .transform((value, origin) =>
                 origin != null && origin !== '' ? value : undefined
               ),
-          }).test((value, ctx) => {
-            if (value.max_points === undefined) return true;
-
-            return value.max_points >= value.min_points
-              ? true
-              : ctx.createError({
-                  message: 'Max points must be greater than min points',
-                });
           })
         )
         .test((value, ctx) => {
@@ -141,13 +137,15 @@ const { fields, update, push, remove } = useFieldArray<{
 const maxPointsErrors = computed(() =>
   fields.value.map(
     (_, index) =>
-      errors.value[`settings[${index}].max_points`] ||
-      errors.value[`settings[${index}]`]
+      errors.value[`settings[${index}].max_points` as never] ||
+      errors.value[`settings[${index}]` as never]
   )
 );
 
 const discountErrors = computed(() =>
-  fields.value.map((_, index) => errors.value[`settings[${index}].discount`])
+  fields.value.map(
+    (_, index) => errors.value[`settings[${index}].discount` as never]
+  )
 );
 
 function editMaxPoints(index: number, value: string | number | null) {
